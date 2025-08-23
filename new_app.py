@@ -550,10 +550,10 @@ def load_gemini_model(model_name):
              "max_output_tokens": 400,
         }
         safety_settings = [
-            {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE"},
-            {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_NONE"},
-            {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_NONE"},
-            {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_NONE"},
+            {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_ONLY_HIGH"},
+            {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_ONLY_HIGH"},
+            {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_ONLY_HIGH"},
+            {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_ONLY_HIGH"},
         ]
         model = genai.GenerativeModel(
             model_name=model_name,
@@ -588,6 +588,12 @@ def test_gemini_connection():
 
 def create_assessment_prompt(skill_type):
     """Creates the prompt for skill assessment based on detailed biomechanical rubrics."""
+    
+    # Add safety preamble to avoid triggering filters
+    safety_preamble = """
+    هذا تحليل تعليمي لأغراض تحسين الأداء الرياضي في كرة القدم.
+    الهدف هو تعزيز التدريب وتطوير المهارات في بيئة آمنة وصحية.
+    """
     
     if skill_type == "تمرير":
         prompt = f"""
@@ -635,6 +641,7 @@ def create_assessment_prompt(skill_type):
         """
         
     elif skill_type == "استقبال":
+        prompt = safety_preamble + f"""
         prompt = f"""
         مهمتك هي تقييم مهارة استلام الكرة في كرة القدم باستخدام المعايير التقنية المحددة.
 
@@ -680,6 +687,7 @@ def create_assessment_prompt(skill_type):
         """
         
     else:  # كلاهما
+        prompt = safety_preamble + f"""
         prompt = f"""
         مهمتك هي تقييم مهارتي التمرير القصير واستلام الكرة في كرة القدم باستخدام المعايير التقنية المحددة.
 
@@ -759,6 +767,33 @@ def upload_and_wait_gemini(video_path, display_name="video_upload", status_place
                  logging.warning(f"Failed to delete file: {del_e}")
         return None
 
+def create_simple_fallback_prompt(skill_type):
+    """Simple fallback prompt that's less likely to trigger safety filters"""
+    if skill_type == "تمرير":
+        return """
+        قيم هذه مهارة كرة القدم للتدريب الرياضي. 
+        الخيارات: مثالي أو جيد أو غير مقبول
+        ارجع الرد بهذا التنسيق:
+        ركبة القدم الضاربة: [مثالي/جيد/غير مقبول]
+        التقييم العام: [مثالي/جيد/غير مقبول]
+        """
+    elif skill_type == "استقبال":
+        return """
+        قيم هذه مهارة استقبال الكرة للتدريب. 
+        الخيارات: مثالي أو جيد أو غير مقبول
+        ارجع الرد بهذا التنسيق:
+        ركبة القدم المستلمة: [مثالي/جيد/غير مقبول]
+        التقييم العام: [مثالي/جيد/غير مقبول]
+        """
+    else:
+        return """
+        قيم مهارات كرة القدم للتدريب. 
+        الخيارات: مثالي أو جيد أو غير مقبول
+        ارجع الرد بهذا التنسيق:
+        التمرير - التقييم العام: [مثالي/جيد/غير مقبول]
+        الاستلام - التقييم العام: [مثالي/جيد/غير مقبول]
+        """
+
 def analyze_video_skill(gemini_file_obj, skill_type, status_placeholder=st.empty()):
     """Analyze video for skill assessment."""
     model = load_gemini_model(st.session_state.model_name)
@@ -772,12 +807,58 @@ def analyze_video_skill(gemini_file_obj, skill_type, status_placeholder=st.empty
     try:
         response = model.generate_content([prompt, gemini_file_obj], request_options={"timeout": 180})
 
+        # Check if response was blocked by safety filters
         if not response.candidates:
              status_placeholder.warning(f"⚠️ استجابة Gemini فارغة لمهارة {skill_type}")
+             logging.warning(f"No candidates returned for {skill_type}")
              return None
+        
+        # Check for safety blocking
+        candidate = response.candidates[0]
+        if hasattr(candidate, 'finish_reason'):
+            finish_reason = candidate.finish_reason
+            if finish_reason == 2:  # SAFETY
+                status_placeholder.error(f"⚠️ تم حظر المحتوى بواسطة مرشحات الأمان - يرجى استخدام فيديو مختلف")
+                logging.error(f"Content blocked by safety filters for {skill_type}, finish_reason: {finish_reason}")
+                return None
+            elif finish_reason == 3:  # RECITATION
+                status_placeholder.error(f"⚠️ تم حظر المحتوى بسبب مخاوف النسخ - يرجى استخدام فيديو مختلف")
+                logging.error(f"Content blocked by recitation filter for {skill_type}, finish_reason: {finish_reason}")
+                return None
+            elif finish_reason == 4:  # OTHER
+                status_placeholder.error(f"⚠️ فشل في التحليل لأسباب أخرى - يرجى المحاولة مرة أخرى")
+                logging.error(f"Content blocked for other reasons for {skill_type}, finish_reason: {finish_reason}")
+                return None
 
-        raw_text = response.text.strip()
-        logging.info(f"Raw response for {skill_type}: {raw_text}")
+        # Try to get text, with error handling for safety blocks
+        try:
+            raw_text = response.text.strip()
+            logging.info(f"Raw response for {skill_type}: {raw_text}")
+        except ValueError as ve:
+            if "finish_reason" in str(ve):
+                status_placeholder.warning(f"⚠️ لم يتمكن Gemini من تحليل هذا الفيديو - جاري المحاولة بطريقة مختلفة...")
+                logging.warning(f"Primary prompt blocked, trying fallback for {skill_type}: {ve}")
+                
+                # Try with simpler fallback prompt
+                fallback_prompt = create_simple_fallback_prompt(skill_type)
+                status_placeholder.info(f"🔄 جاري المحاولة بطريقة مبسطة...")
+                
+                try:
+                    fallback_response = model.generate_content([fallback_prompt, gemini_file_obj], request_options={"timeout": 180})
+                    if fallback_response.candidates and hasattr(fallback_response.candidates[0], 'content'):
+                        raw_text = fallback_response.text.strip()
+                        logging.info(f"Fallback successful for {skill_type}: {raw_text}")
+                        status_placeholder.success(f"✅ تم التحليل بنجاح باستخدام طريقة مبسطة")
+                    else:
+                        status_placeholder.error(f"❌ فشل في تحليل الفيديو - يرجى استخدام فيديو أوضح")
+                        logging.error(f"Both primary and fallback prompts failed for {skill_type}")
+                        return None
+                except Exception as fallback_error:
+                    status_placeholder.error(f"❌ فشل في تحليل الفيديو - يرجى استخدام فيديو مختلف")
+                    logging.error(f"Fallback also failed for {skill_type}: {fallback_error}")
+                    return None
+            else:
+                raise ve
         
         # Parse response based on skill type
         if skill_type == "كلاهما":
