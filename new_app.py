@@ -513,15 +513,15 @@ def configure_gemini_api():
             logging.info("Gemini API configured successfully.")
             return True
         except Exception as e:
-            st.error(f"❗️ فشل في إعداد Gemini API: {e}")
+            st.error(f"فشل في إعداد Gemini API: {e}")
             logging.error(f"Gemini API configuration failed: {e}")
             return False
     else:
-        st.error("❗️ لم يتم العثور على مفتاح Gemini API صالح.")
+        st.error("لم يتم العثور على مفتاح Gemini API صالح.")
         st.info("**طرق إضافة مفتاح API:**")
-        st.info("1️⃣ **Streamlit Secrets**: أضف `GEMINI_API_KEY` في ملف `.streamlit/secrets.toml`")
-        st.info("2️⃣ **متغيرات البيئة**: ضع المفتاح في ملف `.env` أو متغيرات النظام")
-        st.info("3️⃣ **احصل على مفتاح API من**: https://aistudio.google.com/app/apikey")
+        st.info("1. **Streamlit Secrets**: أضف `GEMINI_API_KEY` في ملف `.streamlit/secrets.toml`")
+        st.info("2. **متغيرات البيئة**: ضع المفتاح في ملف `.env` أو متغيرات النظام")
+        st.info("3. **احصل على مفتاح API من**: https://aistudio.google.com/app/apikey")
         st.code("""
 # في ملف .env
 GEMINI_API_KEY=your_actual_api_key_here
@@ -563,7 +563,7 @@ def load_gemini_model(model_name):
         logging.info(f"Gemini Model '{model_name}' loaded successfully.")
         return model
     except Exception as e:
-        st.error(f"❗️ فشل تحميل نموذج Gemini '{model_name}': {e}")
+        st.error(f"فشل تحميل نموذج Gemini '{model_name}': {e}")
         logging.error(f"Gemini model loading failed: {e}")
         return None
 
@@ -577,12 +577,12 @@ def test_gemini_connection():
         test_prompt = "اكتب الرقم 5 فقط لاختبار الاتصال"
         test_response = model.generate_content(test_prompt)
 
-        st.success(f"✅ اختبار Gemini API نجح. الاستجابة: {test_response.text}")
+        st.success(f"اختبار Gemini API نجح. الاستجابة: {test_response.text}")
         logging.info(f"API test successful. Raw response: {test_response}")
         return True
 
     except Exception as e:
-        st.error(f"❌ فشل اختبار Gemini API: {e}")
+        st.error(f"فشل اختبار Gemini API: {e}")
         logging.error(f"API test failed: {e}", exc_info=True)
         return False
 
@@ -602,24 +602,24 @@ def create_assessment_prompt(skill_type):
         **المعايير التقنية للتقييم:**
 
         **1. ركبة القدم الضاربة:**
-        - مثالي ✅: القدم الداعمة بزاوية مناسبة (مرجع: 95°-110°) مع استقرار وتوازن واضح
-        - جيد ⚪: زاوية مقبولة (مرجع: 111°-130°) مع توازن معقول
-        - غير مقبول 🔴: زاوية غير مناسبة (>130° أو <95°) أو عدم استقرار واضح
+        - مثالي: القدم الداعمة بزاوية مناسبة (مرجع: 95°-110°) مع استقرار وتوازن واضح
+        - جيد: زاوية مقبولة (مرجع: 111°-130°) مع توازن معقول
+        - غير مقبول: زاوية غير مناسبة (>130° أو <95°) أو عدم استقرار واضح
 
         **2. ركبة القدم المرتكزة:**
-        - مثالي ✅: توازن ممتاز مع ركبة مرتكزة في وضع مستقر (مرجع: 130°-145°)
-        - جيد ⚪: توازن جيد مع وضعية مقبولة (مرجع: 120°-129°)
-        - غير مقبول 🔴: عدم توازن أو وضعية غير مستقرة (>150° أو <120°)
+        - مثالي: توازن ممتاز مع ركبة مرتكزة في وضع مستقر (مرجع: 130°-145°)
+        - جيد: توازن جيد مع وضعية مقبولة (مرجع: 120°-129°)
+        - غير مقبول: عدم توازن أو وضعية غير مستقرة (>150° أو <120°)
 
         **3. انحناء الجذع:**
-        - مثالي ✅: انحناء مناسب للأمام (مرجع: 15°-30°) يساعد في التحكم والتوازن
-        - جيد ⚪: انحناء مقبول (مرجع: 10°-14° أو 31°-35°)
-        - غير مقبول 🔴: انحناء غير مناسب (<10° أو >35°) أو وقوف مستقيم تماما
+        - مثالي: انحناء مناسب للأمام (مرجع: 15°-30°) يساعد في التحكم والتوازن
+        - جيد: انحناء مقبول (مرجع: 10°-14° أو 31°-35°)
+        - غير مقبول: انحناء غير مناسب (<10° أو >35°) أو وقوف مستقيم تماما
 
         **4. المسافة بين القدم الداعمة والكرة:**
-        - مثالي ✅: مسافة مثلى تحافظ على التوازن والدقة (مرجع: 10-15 سم)
-        - جيد ⚪: مسافة مقبولة (مرجع: 8-9 سم أو 16-18 سم) مع توازن معقول
-        - غير مقبول 🔴: قريب جدا (<8 سم) أو بعيد جدا (>18 سم) مما يقلل التحكم
+        - مثالي: مسافة مثلى تحافظ على التوازن والدقة (مرجع: 10-15 سم)
+        - جيد: مسافة مقبولة (مرجع: 8-9 سم أو 16-18 سم) مع توازن معقول
+        - غير مقبول: قريب جدا (<8 سم) أو بعيد جدا (>18 سم) مما يقلل التحكم
 
         **تعليمات التقييم:**
         راقب الفيديو بعناية وركز على:
@@ -648,24 +648,24 @@ def create_assessment_prompt(skill_type):
         **المعايير التقنية للتقييم:**
 
         **1. ركبة القدم المستلمة:**
-        - مثالي ✅: وضعية مناسبة تساعد على إبطاء استقبال الكرة وزيادة التحكم (مرجع: 100°-115°)
-        - جيد ⚪: وضعية مقبولة للاستقبال (مرجع: 90°-99° أو 116°-125°)
-        - غير مقبول 🔴: وضعية غير مناسبة (<90° أو >125°) تقلل التحكم
+        - مثالي: وضعية مناسبة تساعد على إبطاء استقبال الكرة وزيادة التحكم (مرجع: 100°-115°)
+        - جيد: وضعية مقبولة للاستقبال (مرجع: 90°-99° أو 116°-125°)
+        - غير مقبول: وضعية غير مناسبة (<90° أو >125°) تقلل التحكم
 
         **2. ركبة القدم المرتكزة:**
-        - مثالي ✅: توازن وثبات واضح للجسم (مرجع: 130°-150°)
-        - جيد ⚪: توازن مقبول (مرجع: 120°-129°)
-        - غير مقبول 🔴: عدم توازن أو ثبات (<120° أو >155°)
+        - مثالي: توازن وثبات واضح للجسم (مرجع: 130°-150°)
+        - جيد: توازن مقبول (مرجع: 120°-129°)
+        - غير مقبول: عدم توازن أو ثبات (<120° أو >155°)
 
         **3. انحناء الجذع:**
-        - مثالي ✅: انحناء طفيف للأمام يساعد على الاستقبال السليم (مرجع: 10°-25°)
-        - جيد ⚪: انحناء مقبول (مرجع: 5°-9° أو 26°-30°)
-        - غير مقبول 🔴: وقوف مستقيم أو انحناء مفرط (<5° أو >30°)
+        - مثالي: انحناء طفيف للأمام يساعد على الاستقبال السليم (مرجع: 10°-25°)
+        - جيد: انحناء مقبول (مرجع: 5°-9° أو 26°-30°)
+        - غير مقبول: وقوف مستقيم أو انحناء مفرط (<5° أو >30°)
 
         **4. زاوية الداخل:**
-        - مثالي ✅: تحكم ممتاز في الكرة ومنع ارتدادها (مرجع: 80°-100°)
-        - جيد ⚪: تحكم مقبول (مرجع: 70°-79° أو 101°-110°)
-        - غير مقبول 🔴: فقدان التحكم أو ارتداد الكرة (<70° أو >110°)
+        - مثالي: تحكم ممتاز في الكرة ومنع ارتدادها (مرجع: 80°-100°)
+        - جيد: تحكم مقبول (مرجع: 70°-79° أو 101°-110°)
+        - غير مقبول: فقدان التحكم أو ارتداد الكرة (<70° أو >110°)
 
         **تعليمات التقييم:**
         راقب الفيديو بعناية وركز على:
@@ -688,7 +688,6 @@ def create_assessment_prompt(skill_type):
         
     else:  # كلاهما
         prompt = safety_preamble + f"""
-        prompt = f"""
         مهمتك هي تقييم مهارتي التمرير القصير واستلام الكرة في كرة القدم باستخدام المعايير التقنية المحددة.
 
         **معايير التمرير:**
@@ -726,13 +725,13 @@ def create_assessment_prompt(skill_type):
 def upload_and_wait_gemini(video_path, display_name="video_upload", status_placeholder=st.empty()):
     """Upload video to Gemini and wait for processing."""
     uploaded_file = None
-    status_placeholder.info(f"⏳ جاري رفع الفيديو '{os.path.basename(display_name)}'...")
+    status_placeholder.info(f"جاري رفع الفيديو '{os.path.basename(display_name)}'...")
     logging.info(f"Starting upload for {display_name}")
     
     try:
         safe_display_name = f"upload_{int(time.time())}_{os.path.basename(display_name)}"
         uploaded_file = genai.upload_file(path=video_path, display_name=safe_display_name)
-        status_placeholder.info(f"📤 اكتمل الرفع. برجاء الانتظار للمعالجة...")
+        status_placeholder.info(f"اكتمل الرفع. برجاء الانتظار للمعالجة...")
         logging.info(f"Upload successful for {display_name}, file name: {uploaded_file.name}")
 
         timeout = 300
@@ -752,12 +751,12 @@ def upload_and_wait_gemini(video_path, display_name="video_upload", status_place
              logging.error(f"Unexpected file state {uploaded_file.state.name}")
              raise ValueError(f"حالة ملف فيديو غير متوقعة: {uploaded_file.state.name}")
 
-        status_placeholder.success(f"✅ الفيديو جاهز للتحليل.")
+        status_placeholder.success(f"الفيديو جاهز للتحليل.")
         logging.info(f"File {uploaded_file.name} is ACTIVE.")
         return uploaded_file
 
     except Exception as e:
-        status_placeholder.error(f"❌ خطأ أثناء رفع/معالجة الفيديو: {e}")
+        status_placeholder.error(f"خطأ أثناء رفع/معالجة الفيديو: {e}")
         logging.error(f"Upload/Wait failed: {e}", exc_info=True)
         if uploaded_file and uploaded_file.state.name != "ACTIVE":
             try:
@@ -801,7 +800,7 @@ def analyze_video_skill(gemini_file_obj, skill_type, status_placeholder=st.empty
         return None
         
     prompt = create_assessment_prompt(skill_type)
-    status_placeholder.info(f"🧠 Gemini يحلل مهارة {skill_type}...")
+    status_placeholder.info(f"Gemini يحلل مهارة {skill_type}...")
     logging.info(f"Requesting analysis for skill '{skill_type}' using file {gemini_file_obj.name}")
 
     try:
@@ -809,7 +808,7 @@ def analyze_video_skill(gemini_file_obj, skill_type, status_placeholder=st.empty
 
         # Check if response was blocked by safety filters
         if not response.candidates:
-             status_placeholder.warning(f"⚠️ استجابة Gemini فارغة لمهارة {skill_type}")
+             status_placeholder.warning(f"استجابة Gemini فارغة لمهارة {skill_type}")
              logging.warning(f"No candidates returned for {skill_type}")
              return None
         
@@ -818,15 +817,15 @@ def analyze_video_skill(gemini_file_obj, skill_type, status_placeholder=st.empty
         if hasattr(candidate, 'finish_reason'):
             finish_reason = candidate.finish_reason
             if finish_reason == 2:  # SAFETY
-                status_placeholder.error(f"⚠️ تم حظر المحتوى بواسطة مرشحات الأمان - يرجى استخدام فيديو مختلف")
+                status_placeholder.error(f"تم حظر المحتوى بواسطة مرشحات الأمان - يرجى استخدام فيديو مختلف")
                 logging.error(f"Content blocked by safety filters for {skill_type}, finish_reason: {finish_reason}")
                 return None
             elif finish_reason == 3:  # RECITATION
-                status_placeholder.error(f"⚠️ تم حظر المحتوى بسبب مخاوف النسخ - يرجى استخدام فيديو مختلف")
+                status_placeholder.error(f"تم حظر المحتوى بسبب مخاوف النسخ - يرجى استخدام فيديو مختلف")
                 logging.error(f"Content blocked by recitation filter for {skill_type}, finish_reason: {finish_reason}")
                 return None
             elif finish_reason == 4:  # OTHER
-                status_placeholder.error(f"⚠️ فشل في التحليل لأسباب أخرى - يرجى المحاولة مرة أخرى")
+                status_placeholder.error(f"فشل في التحليل لأسباب أخرى - يرجى المحاولة مرة أخرى")
                 logging.error(f"Content blocked for other reasons for {skill_type}, finish_reason: {finish_reason}")
                 return None
 
@@ -836,25 +835,25 @@ def analyze_video_skill(gemini_file_obj, skill_type, status_placeholder=st.empty
             logging.info(f"Raw response for {skill_type}: {raw_text}")
         except ValueError as ve:
             if "finish_reason" in str(ve):
-                status_placeholder.warning(f"⚠️ لم يتمكن Gemini من تحليل هذا الفيديو - جاري المحاولة بطريقة مختلفة...")
+                status_placeholder.warning(f"لم يتمكن Gemini من تحليل هذا الفيديو - جاري المحاولة بطريقة مختلفة...")
                 logging.warning(f"Primary prompt blocked, trying fallback for {skill_type}: {ve}")
                 
                 # Try with simpler fallback prompt
                 fallback_prompt = create_simple_fallback_prompt(skill_type)
-                status_placeholder.info(f"🔄 جاري المحاولة بطريقة مبسطة...")
+                status_placeholder.info(f"جاري المحاولة بطريقة مبسطة...")
                 
                 try:
                     fallback_response = model.generate_content([fallback_prompt, gemini_file_obj], request_options={"timeout": 180})
                     if fallback_response.candidates and hasattr(fallback_response.candidates[0], 'content'):
                         raw_text = fallback_response.text.strip()
                         logging.info(f"Fallback successful for {skill_type}: {raw_text}")
-                        status_placeholder.success(f"✅ تم التحليل بنجاح باستخدام طريقة مبسطة")
+                        status_placeholder.success(f"تم التحليل بنجاح باستخدام طريقة مبسطة")
                     else:
-                        status_placeholder.error(f"❌ فشل في تحليل الفيديو - يرجى استخدام فيديو أوضح")
+                        status_placeholder.error(f"فشل في تحليل الفيديو - يرجى استخدام فيديو أوضح")
                         logging.error(f"Both primary and fallback prompts failed for {skill_type}")
                         return None
                 except Exception as fallback_error:
-                    status_placeholder.error(f"❌ فشل في تحليل الفيديو - يرجى استخدام فيديو مختلف")
+                    status_placeholder.error(f"فشل في تحليل الفيديو - يرجى استخدام فيديو مختلف")
                     logging.error(f"Fallback also failed for {skill_type}: {fallback_error}")
                     return None
             else:
@@ -925,7 +924,7 @@ def analyze_video_skill(gemini_file_obj, skill_type, status_placeholder=st.empty
             return results if results else {'التقييم العام': NOT_CLEAR_AR}
 
     except Exception as e:
-        status_placeholder.error(f"❌ حدث خطأ أثناء تحليل مهارة {skill_type}: {e}")
+        status_placeholder.error(f"حدث خطأ أثناء تحليل مهارة {skill_type}: {e}")
         logging.error(f"Analysis failed for {skill_type}: {e}", exc_info=True)
         return None
 
@@ -947,14 +946,14 @@ def display_assessment_result(skill, result):
         # Check if this is the new detailed format
         if 'التمرير' in result and 'الاستلام' in result:
             # Both skills with detailed criteria
-            st.markdown("### 📊 نتائج التقييم المفصلة")
+            st.markdown("### نتائج التقييم المفصلة")
             
             # Display passing results
             if result['التمرير']:
-                st.markdown("#### ⚽ نتائج التمرير")
+                st.markdown("#### نتائج التمرير")
                 for criterion, grade in result['التمرير'].items():
                     css_class = get_css_class(grade)
-                    icon = '✅' if grade == 'مثالي' else '⚪' if grade == 'جيد' else '🔴'
+                    icon = '[مثالي]' if grade == 'مثالي' else '[جيد]' if grade == 'جيد' else '[غير مقبول]'
                     st.markdown(f"""
                     <div class="assessment-result {css_class}">
                         {icon} {criterion}: {grade}
@@ -963,10 +962,10 @@ def display_assessment_result(skill, result):
             
             # Display receiving results
             if result['الاستلام']:
-                st.markdown("#### 🎯 نتائج الاستلام")
+                st.markdown("#### نتائج الاستلام")
                 for criterion, grade in result['الاستلام'].items():
                     css_class = get_css_class(grade)
-                    icon = '✅' if grade == 'مثالي' else '⚪' if grade == 'جيد' else '🔴'
+                    icon = '[مثالي]' if grade == 'مثالي' else '[جيد]' if grade == 'جيد' else '[غير مقبول]'
                     st.markdown(f"""
                     <div class="assessment-result {css_class}">
                         {icon} {criterion}: {grade}
@@ -975,10 +974,10 @@ def display_assessment_result(skill, result):
                     
         elif len(result) > 1 and any(':' not in str(k) for k in result.keys()):
             # Single skill with detailed criteria
-            st.markdown("### 📊 نتائج التقييم المفصلة")
+            st.markdown("### نتائج التقييم المفصلة")
             for criterion, grade in result.items():
                 css_class = get_css_class(grade)
-                icon = '✅' if grade == 'مثالي' else '⚪' if grade == 'جيد' else '🔴'
+                icon = '[مثالي]' if grade == 'مثالي' else '[جيد]' if grade == 'جيد' else '[غير مقبول]'
                 st.markdown(f"""
                 <div class="assessment-result {css_class}">
                     {icon} {criterion}: {grade}
@@ -986,7 +985,7 @@ def display_assessment_result(skill, result):
                 """, unsafe_allow_html=True)
         else:
             # Legacy format - simple skill results
-            st.markdown("### 📊 نتائج التقييم")
+            st.markdown("### نتائج التقييم")
             for skill_name, grade in result.items():
                 css_class = get_css_class(grade)
                 st.markdown(f"""
@@ -998,7 +997,7 @@ def display_assessment_result(skill, result):
         # Single result - could be simple grade or detailed format
         if isinstance(result, str):
             css_class = get_css_class(result)
-            st.markdown("### 📊 نتيجة التقييم")
+            st.markdown("### نتيجة التقييم")
             st.markdown(f"""
             <div class="assessment-result {css_class}">
                 {skill}: {result}
@@ -1006,7 +1005,7 @@ def display_assessment_result(skill, result):
             """, unsafe_allow_html=True)
         else:
             # This shouldn't happen, but handle it gracefully
-            st.markdown("### 📊 نتيجة التقييم")
+            st.markdown("### نتيجة التقييم")
             st.markdown(f"""
             <div class="assessment-result متوسط">
                 {skill}: {str(result)}
@@ -1016,7 +1015,7 @@ def display_assessment_result(skill, result):
 # --- Main App ---
 def main():
     # Header
-    st.markdown('<h1 class="main-header">⚽ تقييم مهارات كرة القدم - التمرير والاستقبال ⚽</h1>', unsafe_allow_html=True)
+    st.markdown('<h1 class="main-header">تقييم مهارات كرة القدم - التمرير والاستقبال</h1>', unsafe_allow_html=True)
     st.markdown('<p style="text-align: center; font-size: 18px;">تطبيق بسيط لتقييم مهارات التمرير والاستقبال باستخدام الذكاء الاصطناعي</p>', unsafe_allow_html=True)
     
     st.markdown("---")
@@ -1081,7 +1080,7 @@ def main():
                         )
                         
                         if result:
-                            status_placeholder.success("✅ اكتمل التحليل!")
+                            status_placeholder.success("اكتمل التحليل!")
                             time.sleep(1)
                             status_placeholder.empty()
                             
@@ -1106,7 +1105,7 @@ def main():
                             if celebration_triggered:
                                 st.balloons()
                         else:
-                            st.error("❌ فشل في تحليل المهارة")
+                            st.error("فشل في تحليل المهارة")
                             
                         # Cleanup Gemini file
                         try:
@@ -1118,7 +1117,7 @@ def main():
                         analysis_error = True
                         
                 except Exception as e:
-                    st.error(f"❌ حدث خطأ في معالجة الفيديو: {e}")
+                    st.error(f"حدث خطأ في معالجة الفيديو: {e}")
                     logging.error(f"Video processing error: {e}", exc_info=True)
                     analysis_error = True
                     
@@ -1155,7 +1154,7 @@ def main():
         col1, col2 = st.columns(2)
         
         with col1:
-            if st.button("✅ استخدم هذا النموذج", use_container_width=True):
+            if st.button("استخدم هذا النموذج", use_container_width=True):
                 if selected_model != st.session_state.model_name:
                     st.session_state.model_name = selected_model
                     # Clear cache
@@ -1177,7 +1176,7 @@ def main():
     
     # Footer
     st.markdown("---")
-    st.markdown('<div class="footer">تطبيق تقييم مهارات كرة القدم | مدعوم بتقنية Google Gemini AI ⚽</div>', unsafe_allow_html=True)
+    st.markdown('<div class="footer">تطبيق تقييم مهارات كرة القدم | مدعوم بتقنية Google Gemini AI</div>', unsafe_allow_html=True)
 
 if __name__ == "__main__":
     main()
