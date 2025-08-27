@@ -539,25 +539,17 @@ if not configure_gemini_api():
 if "model_name" not in st.session_state:
     st.session_state.model_name = "models/gemini-2.5-flash"  # Updated to latest recommended model
 
-@st.cache_resource
 def load_gemini_model(model_name):
     """Loads the Gemini model with specific configurations."""
     try:
-        generation_config = {
-             "temperature": 0.2,
-             "top_p": 1,
-             "top_k": 1,
-             "max_output_tokens": 400,
-        }
         safety_settings = [
-            {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_ONLY_HIGH"},
-            {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_ONLY_HIGH"},
-            {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_ONLY_HIGH"},
-            {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_ONLY_HIGH"},
+            {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE"},
+            {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_NONE"},
+            {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_NONE"},
+            {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_NONE"},
         ]
         model = genai.GenerativeModel(
             model_name=model_name,
-            generation_config=generation_config,
             safety_settings=safety_settings
         )
         logging.info(f"Gemini Model '{model_name}' loaded successfully.")

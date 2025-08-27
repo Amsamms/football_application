@@ -539,28 +539,21 @@ if not configure_gemini_api():
 if "model_name" not in st.session_state:
     st.session_state.model_name = "models/gemini-2.5-flash"  # Updated to latest recommended model
 
-@st.cache_resource
 def load_gemini_model(model_name):
     """Loads the Gemini model with specific configurations."""
     try:
-        generation_config = {
-             "temperature": 0.2,
-             "top_p": 1,
-             "top_k": 1,
-             "max_output_tokens": 400,
-        }
         safety_settings = [
-            {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_ONLY_HIGH"},
-            {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_ONLY_HIGH"},
-            {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_ONLY_HIGH"},
-            {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_ONLY_HIGH"},
+            {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE"},
+            {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_NONE"},
+            {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_NONE"},
+            {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_NONE"},
         ]
         model = genai.GenerativeModel(
             model_name=model_name,
-            generation_config=generation_config,
             safety_settings=safety_settings
         )
         logging.info(f"Gemini Model '{model_name}' loaded successfully.")
+        logging.info(f"Safety settings applied: {safety_settings}")
         return model
     except Exception as e:
         st.error(f"فشل تحميل نموذج Gemini '{model_name}': {e}")
@@ -586,124 +579,170 @@ def test_gemini_connection():
         logging.error(f"API test failed: {e}", exc_info=True)
         return False
 
+def detect_skill_in_video(gemini_file_obj):
+    """Detect what skill is actually shown in the video"""
+    model = load_gemini_model(st.session_state.model_name)
+    if not model:
+        return None
+        
+    detection_prompt = """
+    Watch this football training video and identify the main skill being demonstrated.
+    
+    Look for these specific actions:
+    - تمرير: Player kicking/passing the ball to another location
+    - استقبال: Player receiving/controlling an incoming ball with their foot
+    - تصويب: Player shooting the ball towards a goal
+    - أخرى: Any other football skill
+    
+    Respond with ONLY one of these exact words:
+    تمرير
+    استقبال  
+    تصويب
+    أخرى
+    
+    Nothing else - just the skill name.
+    """
+    
+    try:
+        response = model.generate_content([detection_prompt, gemini_file_obj], request_options={"timeout": 120})
+        
+        if not response.candidates:
+            return None
+            
+        candidate = response.candidates[0]
+        if hasattr(candidate, 'finish_reason') and candidate.finish_reason == 2:
+            return None
+            
+        detected_skill = response.text.strip()
+        # Clean up response to get only the skill name
+        for skill in ["تمرير", "استقبال", "تصويب", "أخرى"]:
+            if skill in detected_skill:
+                return skill
+                
+        return None
+        
+    except Exception as e:
+        logging.error(f"Skill detection failed: {e}")
+        return None
+
 def create_assessment_prompt(skill_type):
     """Creates the prompt for skill assessment based on detailed biomechanical rubrics."""
     
     # Add safety preamble to avoid triggering filters
     safety_preamble = """
-    هذا تحليل تعليمي لأغراض تحسين الأداء الرياضي في كرة القدم.
-    الهدف هو تعزيز التدريب وتطوير المهارات في بيئة آمنة وصحية.
+    This is an educational analysis for improving athletic performance in football/soccer.
+    The goal is to enhance training and skill development in a safe and healthy environment.
     """
     
     if skill_type == "تمرير":
         prompt = f"""
-        مهمتك هي تقييم مهارة التمرير القصير في كرة القدم باستخدام المعايير التقنية المحددة.
+        Your task is to assess short passing skills in football/soccer using specific technical criteria.
 
-        **المعايير التقنية للتقييم:**
+        **Technical Assessment Criteria:**
 
-        **1. ركبة القدم الضاربة:**
-        - مثالي: القدم الداعمة بزاوية مناسبة (مرجع: 95-110 درجة) مع استقرار وتوازن واضح
-        - جيد: زاوية مقبولة (مرجع: 111-130 درجة) مع توازن معقول
-        - غير مقبول: زاوية غير مناسبة (أكثر من 130 أو أقل من 95 درجة) أو عدم استقرار واضح
+        **1. Striking Foot Knee:**
+        - Ideal: Supporting foot at appropriate angle (reference: 95-110 degrees) with clear stability and balance
+        - Good: Acceptable angle (reference: 111-130 degrees) with reasonable balance
+        - Unacceptable: Inappropriate angle (more than 130 or less than 95 degrees) or clear instability
 
-        **2. ركبة القدم المرتكزة:**
-        - مثالي: توازن ممتاز مع ركبة مرتكزة في وضع مستقر (مرجع: 130-145 درجة)
-        - جيد: توازن جيد مع وضعية مقبولة (مرجع: 120-129 درجة)
-        - غير مقبول: عدم توازن أو وضعية غير مستقرة (أكثر من 150 أو أقل من 120 درجة)
+        **2. Supporting Foot Knee:**
+        - Ideal: Excellent balance with supporting knee in stable position (reference: 130-145 degrees)
+        - Good: Good balance with acceptable posture (reference: 120-129 degrees)
+        - Unacceptable: Lack of balance or unstable posture (more than 150 or less than 120 degrees)
 
-        **3. انحناء الجذع:**
-        - مثالي: انحناء مناسب للأمام (مرجع: 15-30 درجة) يساعد في التحكم والتوازن
-        - جيد: انحناء مقبول (مرجع: 10-14 أو 31-35 درجة)
-        - غير مقبول: انحناء غير مناسب (أقل من 10 أو أكثر من 35 درجة) أو وقوف مستقيم تماما
+        **3. Trunk Inclination:**
+        - Ideal: Appropriate forward lean (reference: 15-30 degrees) that helps with control and balance
+        - Good: Acceptable lean (reference: 10-14 or 31-35 degrees)
+        - Unacceptable: Inappropriate lean (less than 10 or more than 35 degrees) or completely upright stance
 
-        **4. المسافة بين القدم الداعمة والكرة:**
-        - مثالي: مسافة مثلى تحافظ على التوازن والدقة (مرجع: 10-15 سم)
-        - جيد: مسافة مقبولة (مرجع: 8-9 سم أو 16-18 سم) مع توازن معقول
-        - غير مقبول: قريب جدا (<8 سم) أو بعيد جدا (>18 سم) مما يقلل التحكم
+        **4. Distance Between Supporting Foot and Ball:**
+        - Ideal: Optimal distance maintaining balance and accuracy (reference: 10-15 cm)
+        - Good: Acceptable distance (reference: 8-9 cm or 16-18 cm) with reasonable balance
+        - Unacceptable: Too close (<8 cm) or too far (>18 cm) reducing control
 
-        **تعليمات التقييم:**
-        راقب الفيديو بعناية وركز على:
-        - وضعية الجسم العامة أثناء التمرير
-        - استقرار القدم الداعمة
-        - انحناء الجذع للأمام
-        - المسافة بين القدم والكرة
-        - السلاسة العامة للحركة
+        **Assessment Instructions:**
+        Watch the video carefully and focus on:
+        - Overall body posture during passing
+        - Supporting foot stability
+        - Forward trunk lean
+        - Distance between foot and ball
+        - Overall smoothness of movement
 
-        **طريقة الاستجابة:**
-        قدم التقييم بالتنسيق التالي فقط:
+        **Response Format:**
+        Provide assessment in this exact format only:
         ركبة القدم الضاربة: [مثالي/جيد/غير مقبول]
         ركبة القدم المرتكزة: [مثالي/جيد/غير مقبول] 
         انحناء الجذع: [مثالي/جيد/غير مقبول]
         المسافة للكرة: [مثالي/جيد/غير مقبول]
         التقييم العام: [مثالي/جيد/غير مقبول]
 
-        لا تكتب أي شيء آخر غير هذا التنسيق.
+        Write nothing else except this format.
         """
         
     elif skill_type == "استقبال":
         prompt = safety_preamble + f"""
-        مهمتك هي تقييم مهارة استلام الكرة في كرة القدم باستخدام المعايير التقنية المحددة.
+        Your task is to assess ball receiving skills in football/soccer using specific technical criteria.
 
-        **المعايير التقنية للتقييم:**
+        **Technical Assessment Criteria:**
 
-        **1. ركبة القدم المستلمة:**
-        - مثالي: وضعية مناسبة تساعد على إبطاء استقبال الكرة وزيادة التحكم (مرجع: 100-115 درجة)
-        - جيد: وضعية مقبولة للاستقبال (مرجع: 90-99 أو 116-125 درجة)
-        - غير مقبول: وضعية غير مناسبة (أقل من 90 أو أكثر من 125 درجة) تقلل التحكم
+        **1. Receiving Foot Knee:**
+        - Ideal: Appropriate posture that helps slow ball reception and increase control (reference: 100-115 degrees)
+        - Good: Acceptable posture for reception (reference: 90-99 or 116-125 degrees)
+        - Unacceptable: Inappropriate posture (less than 90 or more than 125 degrees) reducing control
 
-        **2. ركبة القدم المرتكزة:**
-        - مثالي: توازن وثبات واضح للجسم (مرجع: 130-150 درجة)
-        - جيد: توازن مقبول (مرجع: 120-129 درجة)
-        - غير مقبول: عدم توازن أو ثبات (أقل من 120 أو أكثر من 155 درجة)
+        **2. Supporting Foot Knee:**
+        - Ideal: Clear balance and stability of body (reference: 130-150 degrees)
+        - Good: Acceptable balance (reference: 120-129 degrees)
+        - Unacceptable: Lack of balance or stability (less than 120 or more than 155 degrees)
 
-        **3. انحناء الجذع:**
-        - مثالي: انحناء طفيف للأمام يساعد على الاستقبال السليم (مرجع: 10-25 درجة)
-        - جيد: انحناء مقبول (مرجع: 5-9 أو 26-30 درجة)
-        - غير مقبول: وقوف مستقيم أو انحناء مفرط (أقل من 5 أو أكثر من 30 درجة)
+        **3. Trunk Inclination:**
+        - Ideal: Slight forward lean that helps proper reception (reference: 10-25 degrees)
+        - Good: Acceptable lean (reference: 5-9 or 26-30 degrees)
+        - Unacceptable: Standing straight or excessive lean (less than 5 or more than 30 degrees)
 
-        **4. زاوية الداخل:**
-        - مثالي: تحكم ممتاز في الكرة ومنع ارتدادها (مرجع: 80-100 درجة)
-        - جيد: تحكم مقبول (مرجع: 70-79 أو 101-110 درجة)
-        - غير مقبول: فقدان التحكم أو ارتداد الكرة (أقل من 70 أو أكثر من 110 درجة)
+        **4. Inside Angle:**
+        - Ideal: Excellent ball control and preventing bounce (reference: 80-100 degrees)
+        - Good: Acceptable control (reference: 70-79 or 101-110 degrees)
+        - Unacceptable: Loss of control or ball bounce (less than 70 or more than 110 degrees)
 
-        **تعليمات التقييم:**
-        راقب الفيديو بعناية وركز على:
-        - وضعية الجسم عند استقبال الكرة
-        - استقرار القدم الداعمة
-        - انحناء الجذع قليلا للأمام
-        - التحكم في الكرة بعد الاستقبال
-        - السلاسة العامة للحركة
+        **Assessment Instructions:**
+        Watch the video carefully and focus on:
+        - Body posture when receiving the ball
+        - Supporting foot stability
+        - Slight forward trunk lean
+        - Ball control after reception
+        - Overall smoothness of movement
 
-        **طريقة الاستجابة:**
-        قدم التقييم بالتنسيق التالي فقط:
+        **Response Format:**
+        Provide assessment in this exact format only:
         ركبة القدم المستلمة: [مثالي/جيد/غير مقبول]
         ركبة القدم المرتكزة: [مثالي/جيد/غير مقبول]
         انحناء الجذع: [مثالي/جيد/غير مقبول]
         زاوية الداخل: [مثالي/جيد/غير مقبول]
         التقييم العام: [مثالي/جيد/غير مقبول]
 
-        لا تكتب أي شيء آخر غير هذا التنسيق.
+        Write nothing else except this format.
         """
         
     else:  # كلاهما
         prompt = safety_preamble + f"""
-        مهمتك هي تقييم مهارتي التمرير القصير واستلام الكرة في كرة القدم باستخدام المعايير التقنية المحددة.
+        Your task is to assess both short passing and ball receiving skills in football/soccer using specific technical criteria.
 
-        **معايير التمرير:**
-        - ركبة القدم الضاربة: توازن واستقرار مناسب (مرجع: 95-110 درجة)
-        - ركبة القدم المرتكزة: وضعية متوازنة ومستقرة (مرجع: 130-145 درجة)
-        - انحناء الجذع: انحناء مناسب للأمام للتحكم (مرجع: 15-30 درجة)
-        - المسافة للكرة: مسافة مثلى للتوازن والدقة (مرجع: 10-15 سم)
+        **Passing Criteria:**
+        - Striking foot knee: Appropriate balance and stability (reference: 95-110 degrees)
+        - Supporting foot knee: Balanced and stable posture (reference: 130-145 degrees)
+        - Trunk inclination: Appropriate forward lean for control (reference: 15-30 degrees)
+        - Distance to ball: Optimal distance for balance and accuracy (reference: 10-15 cm)
 
-        **معايير الاستلام:**
-        - ركبة القدم المستلمة: وضعية تساعد على التحكم (مرجع: 100-115 درجة)
-        - ركبة القدم المرتكزة: توازن وثبات للجسم (مرجع: 130-150 درجة)
-        - انحناء الجذع: انحناء طفيف للأمام (مرجع: 10-25 درجة)
-        - زاوية الداخل: تحكم في الكرة ومنع الارتداد (مرجع: 80-100 درجة)
+        **Receiving Criteria:**
+        - Receiving foot knee: Posture that helps with control (reference: 100-115 degrees)
+        - Supporting foot knee: Body balance and stability (reference: 130-150 degrees)
+        - Trunk inclination: Slight forward lean (reference: 10-25 degrees)
+        - Inside angle: Ball control and preventing bounce (reference: 80-100 degrees)
 
-        راقب الفيديو وقيّم كلا المهارتين بناء على جودة التنفيذ.
+        Watch the video and assess both skills based on execution quality.
 
-        **طريقة الاستجابة:**
+        **Response Format:**
         التمرير - ركبة القدم الضاربة: [مثالي/جيد/غير مقبول]
         التمرير - ركبة القدم المرتكزة: [مثالي/جيد/غير مقبول]
         التمرير - انحناء الجذع: [مثالي/جيد/غير مقبول]
@@ -716,7 +755,7 @@ def create_assessment_prompt(skill_type):
         الاستلام - زاوية الداخل: [مثالي/جيد/غير مقبول]
         الاستلام - التقييم العام: [مثالي/جيد/غير مقبول]
 
-        لا تكتب أي شيء آخر غير هذا التنسيق.
+        Write nothing else except this format.
         """
     
     return prompt
@@ -769,25 +808,25 @@ def create_simple_fallback_prompt(skill_type):
     """Simple fallback prompt that's less likely to trigger safety filters"""
     if skill_type == "تمرير":
         return """
-        قيم هذه مهارة كرة القدم للتدريب الرياضي. 
-        الخيارات: مثالي أو جيد أو غير مقبول
-        ارجع الرد بهذا التنسيق:
+        Assess this football skill for sports training.
+        Options: مثالي or جيد or غير مقبول
+        Return response in this format:
         ركبة القدم الضاربة: [مثالي/جيد/غير مقبول]
         التقييم العام: [مثالي/جيد/غير مقبول]
         """
     elif skill_type == "استقبال":
         return """
-        قيم هذه مهارة استقبال الكرة للتدريب. 
-        الخيارات: مثالي أو جيد أو غير مقبول
-        ارجع الرد بهذا التنسيق:
+        Assess this ball receiving skill for training.
+        Options: مثالي or جيد or غير مقبول
+        Return response in this format:
         ركبة القدم المستلمة: [مثالي/جيد/غير مقبول]
         التقييم العام: [مثالي/جيد/غير مقبول]
         """
     else:
         return """
-        قيم مهارات كرة القدم للتدريب. 
-        الخيارات: مثالي أو جيد أو غير مقبول
-        ارجع الرد بهذا التنسيق:
+        Assess football skills for training.
+        Options: مثالي or جيد or غير مقبول
+        Return response in this format:
         التمرير - التقييم العام: [مثالي/جيد/غير مقبول]
         الاستلام - التقييم العام: [مثالي/جيد/غير مقبول]
         """
@@ -1071,10 +1110,39 @@ def main():
                     )
                     
                     if gemini_file:
-                        # Analyze skill
+                        # First, detect what skill is actually in the video
+                        status_placeholder.info("🔍 جاري تحديد المهارة في الفيديو...")
+                        detected_skill = detect_skill_in_video(gemini_file)
+                        
+                        if detected_skill:
+                            # Check if detected skill matches selected skill
+                            if detected_skill != selected_skill:
+                                if detected_skill == "تصويب":
+                                    st.warning(f"⚠️ تم اكتشاف مهارة **{detected_skill}** في الفيديو، لكن تم اختيار **{selected_skill}**")
+                                    st.info("هذا التطبيق مخصص لتقييم التمرير والاستقبال فقط. لا يمكن تحليل مهارة التصويب.")
+                                    status_placeholder.empty()
+                                    return
+                                elif detected_skill == "أخرى":
+                                    st.warning(f"⚠️ تم اكتشاف مهارة غير محددة في الفيديو")
+                                    st.info("يرجى رفع فيديو يوضح مهارة التمرير أو الاستقبال بوضوح.")
+                                    status_placeholder.empty()
+                                    return
+                                else:
+                                    st.warning(f"⚠️ تم اكتشاف مهارة **{detected_skill}** في الفيديو، لكن تم اختيار **{selected_skill}**")
+                                    st.info(f"سيتم تحليل المهارة المكتشفة: **{detected_skill}**")
+                                    skill_to_analyze = detected_skill
+                            else:
+                                st.success(f"✅ تم تأكيد المهارة: **{detected_skill}**")
+                                skill_to_analyze = selected_skill
+                        else:
+                            st.warning("⚠️ لم يتمكن من تحديد المهارة في الفيديو بوضوح")
+                            st.info("سيتم المتابعة بالمهارة المختارة...")
+                            skill_to_analyze = selected_skill
+                        
+                        # Analyze the detected/selected skill
                         result = analyze_video_skill(
                             gemini_file, 
-                            selected_skill, 
+                            skill_to_analyze, 
                             status_placeholder
                         )
                         
