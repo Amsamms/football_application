@@ -5,6 +5,9 @@ import tempfile
 import time
 import logging
 import re
+import json
+import hashlib
+from datetime import datetime, timezone
 from dotenv import load_dotenv
 
 # Load environment variables from .env file
@@ -19,6 +22,17 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="collapsed",
 )
+
+# --- Analytics Configuration ---
+GOOGLE_ANALYTICS_ID = st.secrets.get("GOOGLE_ANALYTICS_ID", os.getenv("GOOGLE_ANALYTICS_ID", None))
+
+# Initialize analytics session data
+if "analytics_session" not in st.session_state:
+    st.session_state.analytics_session = {
+        "session_id": hashlib.md5(f"{time.time()}_{st.session_state}".encode()).hexdigest()[:12],
+        "start_time": datetime.now(timezone.utc).isoformat(),
+        "events": []
+    }
 
 # --- CSS Styling (Arabic) ---
 st.markdown("""
@@ -419,8 +433,91 @@ st.markdown("""
         border-radius: 8px !important;
         margin: 5px 0 !important;
     }
+    
+    /* Analytics Dashboard Styling */
+    .analytics-card {
+        background: linear-gradient(135deg, rgba(0, 212, 170, 0.1), rgba(45, 55, 72, 0.2));
+        border: 1px solid rgba(0, 212, 170, 0.3);
+        border-radius: 10px;
+        padding: 15px;
+        margin: 10px 0;
+        text-align: center;
+    }
+    
+    .analytics-metric {
+        font-size: 24px;
+        font-weight: bold;
+        color: #00D4AA;
+        margin: 5px 0;
+    }
+    
+    .analytics-label {
+        font-size: 14px;
+        color: #FFFFFF;
+        opacity: 0.8;
+    }
 </style>
 """, unsafe_allow_html=True)
+
+# --- Google Analytics Integration ---
+if GOOGLE_ANALYTICS_ID:
+    ga_script = f"""
+    <!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id={GOOGLE_ANALYTICS_ID}"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){{dataLayer.push(arguments);}}
+      gtag('js', new Date());
+      gtag('config', '{GOOGLE_ANALYTICS_ID}');
+      
+      // Custom function to track events
+      function trackEvent(eventName, parameters) {{
+        gtag('event', eventName, parameters);
+      }}
+      
+      // Track page view
+      gtag('event', 'page_view', {{
+        page_title: 'Football Skills Assessment',
+        page_location: window.location.href
+      }});
+    </script>
+    """
+    st.markdown(ga_script, unsafe_allow_html=True)
+
+# --- Analytics Functions ---
+def log_custom_event(event_name, properties=None):
+    """Log custom analytics event to Google Analytics"""
+    # Send to Google Analytics if available
+    if GOOGLE_ANALYTICS_ID:
+        # Prepare event properties for GA4
+        ga_properties = {
+            'event_category': 'user_interaction',
+            'event_label': event_name,
+            'session_id': st.session_state.analytics_session["session_id"]
+        }
+        
+        # Add custom properties
+        if properties:
+            for key, value in properties.items():
+                # Convert to GA4 compatible format
+                ga_key = key.replace(' ', '_').lower()
+                ga_properties[ga_key] = str(value)
+        
+        # Create GA4 event script
+        ga_event = f"""
+        <script>
+        if (typeof gtag !== 'undefined') {{
+            gtag('event', '{event_name}', {json.dumps(ga_properties)});
+        }}
+        </script>
+        """
+        st.markdown(ga_event, unsafe_allow_html=True)
+    
+    # Log to console for debugging (only in development)
+    logging.info(f"Analytics Event: {event_name} - {properties}")
+
+# Log page view
+log_custom_event("page_view", {"page": "main"})
 
 # --- Constants ---
 NOT_CLEAR_AR = "غير واضح"
@@ -1067,6 +1164,17 @@ def main():
         horizontal=True
     )
     
+    # Track skill selection changes
+    if "last_selected_skill" not in st.session_state:
+        st.session_state.last_selected_skill = selected_skill
+    elif st.session_state.last_selected_skill != selected_skill:
+        log_custom_event("skill_selection_changed", {
+            "from_skill": st.session_state.last_selected_skill,
+            "to_skill": selected_skill,
+            "skill_english": ASSESSMENT_OPTIONS[selected_skill]
+        })
+        st.session_state.last_selected_skill = selected_skill
+    
     st.markdown("---")
     
     # Video Upload
@@ -1079,6 +1187,17 @@ def main():
         help="ارفع فيديو يظهر مهارة التمرير و/أو الاستقبال"
     )
     
+    # Track video upload
+    if uploaded_file and "last_uploaded_file" not in st.session_state:
+        file_size_mb = len(uploaded_file.getvalue()) / (1024 * 1024)
+        log_custom_event("video_uploaded", {
+            "filename": uploaded_file.name,
+            "file_size_mb": round(file_size_mb, 2),
+            "file_type": uploaded_file.type,
+            "selected_skill": selected_skill
+        })
+        st.session_state.last_uploaded_file = uploaded_file.name
+    
     st.markdown('</div>', unsafe_allow_html=True)
     
     st.markdown("---")
@@ -1090,6 +1209,12 @@ def main():
         col1, col2, col3 = st.columns([1, 2, 1])
         with col2:
             if st.button("تحليل المهارة", use_container_width=True, type="primary"):
+                # Track analysis button click
+                log_custom_event("analysis_started", {
+                    "skill_type": selected_skill,
+                    "model_used": st.session_state.model_name,
+                    "has_video": uploaded_file is not None
+                })
                 # Process video
                 local_temp_file_path = None
                 analysis_error = False
@@ -1113,6 +1238,13 @@ def main():
                         # First, detect what skill is actually in the video
                         status_placeholder.info("🔍 جاري تحديد المهارة في الفيديو...")
                         detected_skill = detect_skill_in_video(gemini_file)
+                        
+                        # Track skill detection
+                        log_custom_event("skill_detection_completed", {
+                            "detected_skill": detected_skill,
+                            "selected_skill": selected_skill,
+                            "match": detected_skill == selected_skill if detected_skill else None
+                        })
                         
                         if detected_skill:
                             # Check if detected skill matches selected skill
@@ -1151,6 +1283,18 @@ def main():
                             time.sleep(1)
                             status_placeholder.empty()
                             
+                            # Track successful analysis
+                            log_custom_event("analysis_completed", {
+                                "skill_analyzed": skill_to_analyze,
+                                "model_used": st.session_state.model_name,
+                                "result_type": "detailed" if isinstance(result, dict) else "simple",
+                                "has_excellent_results": any(
+                                    grade == 'مثالي' 
+                                    for grade in (result.values() if isinstance(result, dict) else [result])
+                                    if isinstance(grade, str)
+                                )
+                            })
+                            
                             # Display result
                             display_assessment_result(selected_skill, result)
                             
@@ -1173,6 +1317,12 @@ def main():
                                 st.balloons()
                         else:
                             st.error("فشل في تحليل المهارة")
+                            # Track analysis failure
+                            log_custom_event("analysis_failed", {
+                                "skill_type": skill_to_analyze,
+                                "model_used": st.session_state.model_name,
+                                "error_type": "analysis_result_none"
+                            })
                             
                         # Cleanup Gemini file
                         try:
@@ -1182,11 +1332,21 @@ def main():
                             logging.warning(f"Could not delete Gemini file: {e}")
                     else:
                         analysis_error = True
+                        # Track upload failure
+                        log_custom_event("upload_failed", {
+                            "skill_type": selected_skill,
+                            "error_type": "gemini_upload_failed"
+                        })
                         
                 except Exception as e:
                     st.error(f"حدث خطأ في معالجة الفيديو: {e}")
                     logging.error(f"Video processing error: {e}", exc_info=True)
                     analysis_error = True
+                    # Track processing error
+                    log_custom_event("processing_error", {
+                        "error_message": str(e),
+                        "skill_type": selected_skill
+                    })
                     
                 finally:
                     # Cleanup local temp file
@@ -1223,7 +1383,15 @@ def main():
         with col1:
             if st.button("استخدم هذا النموذج", use_container_width=True):
                 if selected_model != st.session_state.model_name:
+                    old_model = st.session_state.model_name
                     st.session_state.model_name = selected_model
+                    
+                    # Track model change
+                    log_custom_event("model_changed", {
+                        "from_model": old_model,
+                        "to_model": selected_model
+                    })
+                    
                     # Clear cache
                     try:
                         st.cache_resource.clear()
